@@ -151,9 +151,16 @@ if file:
                 content.append(Image(dist_path, width=400, height=300))
 
                 doc.build(content)
+                # 📄 PDF DOWNLOAD (FIXED)
+                with open(pdf_file, "rb") as f:
+                      st.download_button(
+                      label="📄 Download Report",
+                      data=f.read(),
+                      file_name="ML_Report.pdf",
+                       mime="application/pdf"
+                                              )
 
-                with open(pdf, "rb") as f:
-                    st.download_button("📄 Download Full Report", f)
+
 
     # -------- TAB 3 --------
     with tab3:
