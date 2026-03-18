@@ -5,9 +5,10 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 
 from sklearn.model_selection import train_test_split, cross_val_score
-from sklearn.linear_model import LinearRegression
-from sklearn.ensemble import RandomForestRegressor
-from sklearn.metrics import r2_score, mean_absolute_error
+from sklearn.linear_model import LinearRegression, LogisticRegression
+from sklearn.ensemble import RandomForestRegressor, RandomForestClassifier
+from sklearn.tree import DecisionTreeRegressor, DecisionTreeClassifier
+from sklearn.metrics import r2_score, mean_absolute_error, accuracy_score
 
 # ------------------ PAGE CONFIG ------------------
 st.set_page_config(
@@ -23,12 +24,6 @@ st.markdown("""
 font-size:40px;
 font-weight:bold;
 color:#4CAF50;
-}
-
-.metric-box{
-background-color:#111827;
-padding:20px;
-border-radius:10px;
 }
 </style>
 """, unsafe_allow_html=True)
@@ -55,13 +50,9 @@ if file is not None:
 
         col1, col2, col3 = st.columns(3)
 
-        rows = df.shape[0]
-        cols = df.shape[1]
-        missing = df.isnull().sum().sum()
-
-        col1.metric("Rows", rows)
-        col2.metric("Columns", cols)
-        col3.metric("Missing Values", missing)
+        col1.metric("Rows", df.shape[0])
+        col2.metric("Columns", df.shape[1])
+        col3.metric("Missing Values", df.isnull().sum().sum())
 
         target = st.selectbox("Select Target Column", df.columns)
 
@@ -75,87 +66,107 @@ if file is not None:
             X = df.drop(columns=[target])
             y = df[target]
 
-            # Handle categorical features
+            # Handle categorical
             X = pd.get_dummies(X)
 
-            # 🔥 FIX 1: Handle missing values
+            # Handle missing values
             X = X.fillna(X.mean(numeric_only=True))
-            if y.dtype != 'object':
-                y = y.fillna(y.mean())
 
-            # 🔥 FIX 2: Ensure target is numeric (for regression)
+            # Try numeric conversion
             try:
                 y = pd.to_numeric(y)
             except:
-                st.error("Target column must be numeric for regression.")
-                st.stop()
+                pass
 
             X_train, X_test, y_train, y_test = train_test_split(
                 X, y, test_size=0.2, random_state=42
             )
 
+            # 🔥 AUTO DETECT
+            if y.nunique() < 10:
+                problem_type = "classification"
+                st.info("🔍 Detected: Classification Problem")
+            else:
+                problem_type = "regression"
+                st.info("🔍 Detected: Regression Problem")
+
             if st.button("🚀 Run Model Analysis"):
+
+                results = []
 
                 with st.spinner("Training models..."):
 
-                    models = {
-                        "Linear Regression": LinearRegression(),
-                        "Random Forest": RandomForestRegressor(n_estimators=300, random_state=42)
-                    }
+                    if problem_type == "regression":
 
-                    results = []
+                        models = {
+                            "Linear Regression": LinearRegression(),
+                            "Random Forest Regressor": RandomForestRegressor(),
+                            "Decision Tree Regressor": DecisionTreeRegressor()
+                        }
 
-                    for name, model in models.items():
-                        try:
-                            model.fit(X_train, y_train)
+                        for name, model in models.items():
+                            try:
+                                model.fit(X_train, y_train)
+                                pred = model.predict(X_test)
 
-                            train_pred = model.predict(X_train)
-                            test_pred = model.predict(X_test)
+                                results.append({
+                                    "Model": name,
+                                    "R2 Score": round(r2_score(y_test, pred), 3),
+                                    "MAE": round(mean_absolute_error(y_test, pred), 3),
+                                    "CV Score": round(cross_val_score(model, X, y, cv=5).mean(), 3)
+                                })
+                            except Exception as e:
+                                st.warning(f"{name} failed: {e}")
 
-                            train_r2 = r2_score(y_train, train_pred)
-                            test_r2 = r2_score(y_test, test_pred)
+                        results_df = pd.DataFrame(results)
+                        best_model = results_df.sort_values(by="R2 Score", ascending=False).iloc[0]
+                        score = best_model["R2 Score"]
 
-                            mae = mean_absolute_error(y_test, test_pred)
+                    else:  # CLASSIFICATION
 
-                            cv = cross_val_score(model, X, y, cv=5).mean()
+                        models = {
+                            "Logistic Regression": LogisticRegression(max_iter=2000),
+                            "Random Forest Classifier": RandomForestClassifier(),
+                            "Decision Tree Classifier": DecisionTreeClassifier()
+                        }
 
-                            results.append({
-                                "Model": name,
-                                "Train R2": round(train_r2, 3),
-                                "Test R2": round(test_r2, 3),
-                                "MAE": round(mae, 3),
-                                "CV Score": round(cv, 3)
-                            })
+                        for name, model in models.items():
+                            try:
+                                model.fit(X_train, y_train)
+                                pred = model.predict(X_test)
 
-                        except Exception as e:
-                            st.warning(f"{name} failed: {e}")
+                                results.append({
+                                    "Model": name,
+                                    "Accuracy": round(accuracy_score(y_test, pred), 3),
+                                    "CV Score": round(cross_val_score(model, X, y, cv=5).mean(), 3)
+                                })
+                            except Exception as e:
+                                st.warning(f"{name} failed: {e}")
 
-                    if len(results) == 0:
-                        st.error("All models failed. Check dataset.")
-                        st.stop()
+                        results_df = pd.DataFrame(results)
+                        best_model = results_df.sort_values(by="Accuracy", ascending=False).iloc[0]
+                        score = best_model["Accuracy"]
 
-                    results_df = pd.DataFrame(results)
+                if len(results) == 0:
+                    st.error("All models failed.")
+                    st.stop()
 
-                    st.subheader("Model Comparison")
-                    st.dataframe(results_df)
+                st.subheader("Model Comparison")
+                st.dataframe(results_df)
 
-                    best_model = results_df.sort_values(by="Test R2", ascending=False).iloc[0]
+                st.success(f"Best Model: {best_model['Model']}")
 
-                    st.success(f"Best Model: {best_model['Model']}")
+                # 🔥 Feasibility Logic
+                if score > 0.85:
+                    feasibility = "Highly Feasible"
+                elif score > 0.65:
+                    feasibility = "Moderately Feasible"
+                else:
+                    feasibility = "Low Feasibility"
 
-                    score = best_model["Test R2"]
-                    gap = abs(best_model["Train R2"] - best_model["Test R2"])
-
-                    if score > 0.85 and gap < 0.1:
-                        feasibility = "Highly Feasible"
-                    elif score > 0.65:
-                        feasibility = "Moderately Feasible"
-                    else:
-                        feasibility = "Low Feasibility"
-
-                    st.metric("Feasibility Score", f"{score*100:.2f}%")
-                    st.progress(max(0, min(1, score)))
-                    st.write("Conclusion:", feasibility)
+                st.metric("Feasibility Score", f"{score*100:.2f}%")
+                st.progress(max(0, min(1, score)))
+                st.write("Conclusion:", feasibility)
 
     # ---------------- VISUALIZATION TAB ----------------
     with tab3:
@@ -167,12 +178,7 @@ if file is not None:
             st.subheader("Feature Correlation")
 
             fig, ax = plt.subplots(figsize=(8, 6))
-            sns.heatmap(
-                df.corr(numeric_only=True),
-                cmap="coolwarm",
-                annot=True,
-                ax=ax
-            )
+            sns.heatmap(df.corr(numeric_only=True), cmap="coolwarm", annot=True, ax=ax)
             st.pyplot(fig)
 
             st.subheader("Target Distribution")
