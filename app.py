@@ -22,7 +22,6 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 st.sidebar.title("⚙️ Controls")
-
 file = st.sidebar.file_uploader("Upload CSV", type=["csv"])
 
 # ---------------- MAIN ----------------
@@ -56,44 +55,54 @@ if file:
             except:
                 pass
 
-            X_train, X_test, y_train, y_test = train_test_split(X, y)
+            X_train, X_test, y_train, y_test = train_test_split(
+                X, y, test_size=0.2, random_state=42
+            )
 
             problem = "classification" if y.nunique() < 10 else "regression"
-            st.info(f"Detected: {problem}")
+            st.info(f"🔍 Detected: {problem}")
 
-            if st.button("Run Analysis"):
+            if st.button("🚀 Run Analysis"):
 
                 results = []
 
+                # -------- MODELS --------
                 if problem == "regression":
                     models = {
-                        "Linear": LinearRegression(),
-                        "Forest": RandomForestRegressor(),
-                        "Tree": DecisionTreeRegressor()
+                        "Linear Regression": LinearRegression(),
+                        "Random Forest": RandomForestRegressor(),
+                        "Decision Tree": DecisionTreeRegressor()
                     }
 
                     for n, m in models.items():
                         m.fit(X_train, y_train)
                         pred = m.predict(X_test)
-                        results.append({"Model": n, "Score": r2_score(y_test, pred)})
+                        results.append({
+                            "Model": n,
+                            "Score": r2_score(y_test, pred)
+                        })
 
                 else:
                     models = {
-                        "Logistic": LogisticRegression(max_iter=2000),
-                        "Forest": RandomForestClassifier(),
-                        "Tree": DecisionTreeClassifier()
+                        "Logistic Regression": LogisticRegression(max_iter=2000),
+                        "Random Forest": RandomForestClassifier(),
+                        "Decision Tree": DecisionTreeClassifier()
                     }
 
                     for n, m in models.items():
                         m.fit(X_train, y_train)
                         pred = m.predict(X_test)
-                        results.append({"Model": n, "Score": accuracy_score(y_test, pred)})
+                        results.append({
+                            "Model": n,
+                            "Score": accuracy_score(y_test, pred)
+                        })
 
+                # -------- RESULTS --------
                 results_df = pd.DataFrame(results)
                 best = results_df.sort_values(by="Score", ascending=False).iloc[0]
 
                 st.dataframe(results_df)
-                st.success(f"Best Model: {best['Model']}")
+                st.success(f"🏆 Best Model: {best['Model']}")
 
                 score = best["Score"]
 
@@ -106,22 +115,22 @@ if file:
 
                 st.metric("Score", f"{score*100:.2f}%")
 
-                # 🤖 AI ADVISOR
+                # -------- AI ADVISOR --------
                 st.subheader("🤖 AI Advisor")
                 if "Forest" in best["Model"]:
-                    st.write("Model captured complex patterns. Data likely non-linear.")
+                    st.write("Model captured complex patterns → Data is non-linear.")
                 elif "Linear" in best["Model"]:
-                    st.write("Data shows linear relationships.")
+                    st.write("Data shows strong linear relationships.")
                 else:
-                    st.write("Model fits simple structure. Consider feature engineering.")
+                    st.write("Simple patterns detected → Try feature engineering.")
 
-                # 🎧 VOICE
+                # -------- VOICE --------
                 text = f"Best model is {best['Model']}. Score is {score*100:.1f} percent. Feasibility is {feasibility}."
                 tts = gTTS(text)
                 tts.save("voice.mp3")
                 st.audio("voice.mp3")
 
-                # -------- CHARTS FOR PDF --------
+                # -------- CHARTS --------
                 heatmap_path = "heatmap.png"
                 fig, ax = plt.subplots()
                 sns.heatmap(df.corr(numeric_only=True), ax=ax)
@@ -140,7 +149,7 @@ if file:
                 styles = getSampleStyleSheet()
 
                 content = []
-                content.append(Paragraph("ML Report", styles['Title']))
+                content.append(Paragraph("ML Analysis Report", styles['Title']))
                 content.append(Spacer(1, 10))
                 content.append(Paragraph(f"Best Model: {best['Model']}", styles['Normal']))
                 content.append(Paragraph(f"Score: {score*100:.2f}%", styles['Normal']))
@@ -151,16 +160,15 @@ if file:
                 content.append(Image(dist_path, width=400, height=300))
 
                 doc.build(content)
-                # 📄 PDF DOWNLOAD (FIXED)
-                with open(pdf_file, "rb") as f:
-                      st.download_button(
-                      label="📄 Download Report",
-                      data=f.read(),
-                      file_name="ML_Report.pdf",
-                       mime="application/pdf"
-                                              )
 
-
+                # -------- DOWNLOAD FIXED --------
+                with open(pdf, "rb") as f:
+                    st.download_button(
+                        label="📄 Download Report",
+                        data=f.read(),
+                        file_name="ML_Report.pdf",
+                        mime="application/pdf"
+                    )
 
     # -------- TAB 3 --------
     with tab3:
