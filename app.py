@@ -17,161 +17,212 @@ from reportlab.lib.styles import getSampleStyleSheet
 # ---------------- UI ----------------
 st.set_page_config(page_title="ML AI Advisor", layout="wide")
 
+# -------- HEADER --------
 st.markdown("""
-<h1 style='text-align:center;color:#4CAF50;'>🚀 ML AI Advisor</h1>
+<h1 style='text-align:center;color:#4CAF50;'>
+🚀 ML AI Advisor <br>
+<span style='font-size:18px;'>by Nithin Mathew</span>
+</h1>
 """, unsafe_allow_html=True)
 
+# -------- SIDEBAR --------
 st.sidebar.title("⚙️ Controls")
-file = st.sidebar.file_uploader("Upload CSV", type=["csv"])
+st.sidebar.markdown("👨‍💻 Developed by **Nithin Mathew**")
 
-# ---------------- MAIN ----------------
-if file:
+page = st.sidebar.radio("📌 Navigation", ["Home", "About"])
 
-    df = pd.read_csv(file)
+# ================= HOME PAGE =================
+if page == "Home":
 
-    tab1, tab2, tab3 = st.tabs(["📂 Dataset", "🤖 Analysis", "📊 Visuals"])
+    file = st.sidebar.file_uploader("Upload CSV", type=["csv"])
 
-    # -------- TAB 1 --------
-    with tab1:
-        st.dataframe(df.head())
-        st.write("Rows:", df.shape[0])
-        st.write("Columns:", df.shape[1])
-        target = st.selectbox("Target Column", df.columns)
+    if file:
+        df = pd.read_csv(file)
 
-    # -------- TAB 2 --------
-    with tab2:
+        tab1, tab2, tab3 = st.tabs(["📂 Dataset", "🤖 Analysis", "📊 Visuals"])
 
-        if 'target' not in locals():
-            st.warning("Select target")
-        else:
+        # -------- TAB 1 --------
+        with tab1:
+            st.dataframe(df.head())
+            st.write("Rows:", df.shape[0])
+            st.write("Columns:", df.shape[1])
+            target = st.selectbox("Target Column", df.columns)
 
-            X = pd.get_dummies(df.drop(columns=[target]))
-            y = df[target]
+        # -------- TAB 2 --------
+        with tab2:
 
-            X = X.fillna(X.mean(numeric_only=True))
+            if 'target' not in locals():
+                st.warning("Select target")
+            else:
 
-            try:
-                y = pd.to_numeric(y)
-            except:
-                pass
+                X = pd.get_dummies(df.drop(columns=[target]))
+                y = df[target]
 
-            X_train, X_test, y_train, y_test = train_test_split(
-                X, y, test_size=0.2, random_state=42
-            )
+                X = X.fillna(X.mean(numeric_only=True))
 
-            problem = "classification" if y.nunique() < 10 else "regression"
-            st.info(f"🔍 Detected: {problem}")
+                try:
+                    y = pd.to_numeric(y)
+                except:
+                    pass
 
-            if st.button("🚀 Run Analysis"):
+                X_train, X_test, y_train, y_test = train_test_split(
+                    X, y, test_size=0.2, random_state=42
+                )
 
-                results = []
+                problem = "classification" if y.nunique() < 10 else "regression"
+                st.info(f"🔍 Detected: {problem}")
 
-                # -------- MODELS --------
-                if problem == "regression":
-                    models = {
-                        "Linear Regression": LinearRegression(),
-                        "Random Forest": RandomForestRegressor(),
-                        "Decision Tree": DecisionTreeRegressor()
-                    }
+                if st.button("🚀 Run Analysis"):
 
-                    for n, m in models.items():
-                        m.fit(X_train, y_train)
-                        pred = m.predict(X_test)
-                        results.append({
-                            "Model": n,
-                            "Score": r2_score(y_test, pred)
-                        })
+                    results = []
 
-                else:
-                    models = {
-                        "Logistic Regression": LogisticRegression(max_iter=2000),
-                        "Random Forest": RandomForestClassifier(),
-                        "Decision Tree": DecisionTreeClassifier()
-                    }
+                    # -------- MODELS --------
+                    if problem == "regression":
+                        models = {
+                            "Linear Regression": LinearRegression(),
+                            "Random Forest": RandomForestRegressor(),
+                            "Decision Tree": DecisionTreeRegressor()
+                        }
 
-                    for n, m in models.items():
-                        m.fit(X_train, y_train)
-                        pred = m.predict(X_test)
-                        results.append({
-                            "Model": n,
-                            "Score": accuracy_score(y_test, pred)
-                        })
+                        for n, m in models.items():
+                            m.fit(X_train, y_train)
+                            pred = m.predict(X_test)
+                            results.append({
+                                "Model": n,
+                                "Score": r2_score(y_test, pred)
+                            })
 
-                # -------- RESULTS --------
-                results_df = pd.DataFrame(results)
-                best = results_df.sort_values(by="Score", ascending=False).iloc[0]
+                    else:
+                        models = {
+                            "Logistic Regression": LogisticRegression(max_iter=2000),
+                            "Random Forest": RandomForestClassifier(),
+                            "Decision Tree": DecisionTreeClassifier()
+                        }
 
-                st.dataframe(results_df)
-                st.success(f"🏆 Best Model: {best['Model']}")
+                        for n, m in models.items():
+                            m.fit(X_train, y_train)
+                            pred = m.predict(X_test)
+                            results.append({
+                                "Model": n,
+                                "Score": accuracy_score(y_test, pred)
+                            })
 
-                score = best["Score"]
+                    # -------- RESULTS --------
+                    results_df = pd.DataFrame(results)
+                    best = results_df.sort_values(by="Score", ascending=False).iloc[0]
 
-                if score > 0.85:
-                    feasibility = "Highly Feasible"
-                elif score > 0.65:
-                    feasibility = "Moderate"
-                else:
-                    feasibility = "Low"
+                    st.dataframe(results_df)
+                    st.success(f"🏆 Best Model: {best['Model']}")
 
-                st.metric("Score", f"{score*100:.2f}%")
+                    score = best["Score"]
 
-                # -------- AI ADVISOR --------
-                st.subheader("🤖 AI Advisor")
-                if "Forest" in best["Model"]:
-                    st.write("Model captured complex patterns → Data is non-linear.")
-                elif "Linear" in best["Model"]:
-                    st.write("Data shows strong linear relationships.")
-                else:
-                    st.write("Simple patterns detected → Try feature engineering.")
+                    if score > 0.85:
+                        feasibility = "Highly Feasible"
+                    elif score > 0.65:
+                        feasibility = "Moderate"
+                    else:
+                        feasibility = "Low"
 
-                # -------- VOICE --------
-                text = f"Best model is {best['Model']}. Score is {score*100:.1f} percent. Feasibility is {feasibility}."
-                tts = gTTS(text)
-                tts.save("voice.mp3")
-                st.audio("voice.mp3")
+                    st.metric("Score", f"{score*100:.2f}%")
 
-                # -------- CHARTS --------
-                heatmap_path = "heatmap.png"
-                fig, ax = plt.subplots()
-                sns.heatmap(df.corr(numeric_only=True), ax=ax)
-                plt.savefig(heatmap_path)
-                plt.close()
+                    # -------- AI ADVISOR --------
+                    st.subheader("🤖 AI Advisor")
+                    if "Forest" in best["Model"]:
+                        st.write("Model captured complex patterns → Data is non-linear.")
+                    elif "Linear" in best["Model"]:
+                        st.write("Data shows strong linear relationships.")
+                    else:
+                        st.write("Simple patterns detected → Try feature engineering.")
 
-                dist_path = "dist.png"
-                fig2, ax2 = plt.subplots()
-                sns.histplot(df[target], ax=ax2)
-                plt.savefig(dist_path)
-                plt.close()
+                    # -------- VOICE --------
+                    text = f"Best model is {best['Model']}. Score is {score*100:.1f} percent. Feasibility is {feasibility}."
+                    tts = gTTS(text)
+                    tts.save("voice.mp3")
+                    st.audio("voice.mp3")
 
-                # -------- PDF --------
-                pdf = "report.pdf"
-                doc = SimpleDocTemplate(pdf)
-                styles = getSampleStyleSheet()
+                    # -------- CHARTS --------
+                    heatmap_path = "heatmap.png"
+                    fig, ax = plt.subplots()
+                    sns.heatmap(df.corr(numeric_only=True), ax=ax)
+                    plt.savefig(heatmap_path)
+                    plt.close()
 
-                content = []
-                content.append(Paragraph("ML Analysis Report", styles['Title']))
-                content.append(Spacer(1, 10))
-                content.append(Paragraph(f"Best Model: {best['Model']}", styles['Normal']))
-                content.append(Paragraph(f"Score: {score*100:.2f}%", styles['Normal']))
-                content.append(Paragraph(f"Feasibility: {feasibility}", styles['Normal']))
+                    dist_path = "dist.png"
+                    fig2, ax2 = plt.subplots()
+                    sns.histplot(df[target], ax=ax2)
+                    plt.savefig(dist_path)
+                    plt.close()
 
-                content.append(Spacer(1, 10))
-                content.append(Image(heatmap_path, width=400, height=300))
-                content.append(Image(dist_path, width=400, height=300))
+                    # -------- PDF --------
+                    pdf = "report.pdf"
+                    doc = SimpleDocTemplate(pdf)
+                    styles = getSampleStyleSheet()
 
-                doc.build(content)
+                    content = []
+                    content.append(Paragraph("ML Analysis Report", styles['Title']))
+                    content.append(Spacer(1, 10))
+                    content.append(Paragraph(f"Best Model: {best['Model']}", styles['Normal']))
+                    content.append(Paragraph(f"Score: {score*100:.2f}%", styles['Normal']))
+                    content.append(Paragraph(f"Feasibility: {feasibility}", styles['Normal']))
 
-                # -------- DOWNLOAD FIXED --------
-                with open(pdf, "rb") as f:
-                    st.download_button(
-                        label="📄 Download Report",
-                        data=f.read(),
-                        file_name="ML_Report.pdf",
-                        mime="application/pdf"
-                    )
+                    content.append(Spacer(1, 10))
+                    content.append(Image(heatmap_path, width=400, height=300))
+                    content.append(Image(dist_path, width=400, height=300))
 
-    # -------- TAB 3 --------
-    with tab3:
-        fig, ax = plt.subplots()
-        sns.heatmap(df.corr(numeric_only=True), ax=ax)
-        st.pyplot(fig)
+                    doc.build(content)
+
+                    # -------- DOWNLOAD --------
+                    with open(pdf, "rb") as f:
+                        st.download_button(
+                            label="📄 Download Report",
+                            data=f.read(),
+                            file_name="ML_Report.pdf",
+                            mime="application/pdf"
+                        )
+
+        # -------- TAB 3 --------
+        with tab3:
+            fig, ax = plt.subplots()
+            sns.heatmap(df.corr(numeric_only=True), ax=ax)
+            st.pyplot(fig)
+
+# ================= ABOUT PAGE =================
+elif page == "About":
+
+    st.markdown("""
+    <h2 style='text-align:center;color:#FF5733;'>✨ About This App ✨</h2>
+    """, unsafe_allow_html=True)
+
+    st.markdown("""
+    ## 🚀 Project Overview
+    This application is an intelligent Machine Learning assistant that:
+    - Automatically detects problem type (Regression / Classification)
+    - Trains multiple ML models
+    - Selects the best performing model
+    - Generates insights and reports
+
+    ## 🧠 Features
+    - 📂 Upload your own dataset
+    - 🤖 Automated ML model selection
+    - 📊 Data visualization
+    - 🔊 Voice feedback
+    - 📄 PDF report generation
+
+    ## ⚙️ Technologies Used
+    - Python 🐍
+    - Streamlit 🌐
+    - Scikit-learn 🤖
+    - Matplotlib & Seaborn 📊
+    - gTTS 🔊
+    - ReportLab 📄
+
+    ## 👨‍💻 Developer
+    Built by **Nithin Mathew** 💡  
+    AIML Student | Future AI Engineer 🚀
+    """)
+
+# -------- FOOTER --------
+st.markdown("""
+<hr>
+<p style='text-align:center;'>© 2026 Nithin Mathew | ML AI Advisor</p>
+""", unsafe_allow_html=True)
