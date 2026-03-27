@@ -1,21 +1,16 @@
 # ======================================================
-# 🚀 ML AI ADVISOR v4.0 — ENTERPRISE VERSION
-# Gemini + Memory + Auth + Collaboration + PDF + Voice
+# 🚀 ML AI ADVISOR v3.0 — FULL FINAL (GEMINI VERSION)
+# Auth + ML + Chatbot + Gemini AI (NO CLAUDE)
 # ======================================================
 
 import streamlit as st
 import pandas as pd
 import numpy as np
-import json, os, hashlib, uuid
-import google.generativeai as genai
 import matplotlib.pyplot as plt
 import seaborn as sns
-from datetime import datetime
-from gtts import gTTS
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
-from reportlab.lib.styles import getSampleStyleSheet
+import hashlib, json, os, uuid
+import google.generativeai as genai
 
-# ML
 from sklearn.model_selection import train_test_split
 from sklearn.linear_model import LinearRegression, LogisticRegression
 from sklearn.ensemble import RandomForestRegressor, RandomForestClassifier
@@ -23,126 +18,120 @@ from sklearn.tree import DecisionTreeRegressor, DecisionTreeClassifier
 from sklearn.metrics import r2_score, accuracy_score
 
 # -----------------------------
-# FILES
+# CONFIG
 # -----------------------------
-MEMORY_FILE = "memory.json"
-USERS_FILE = "users.json"
-SESSION_FILE = "sessions.json"
-
 st.set_page_config(page_title="ML AI Advisor", layout="wide")
 
+USERS_FILE = "users.json"
+
 # -----------------------------
-# BASIC STORAGE
+# AUTH SYSTEM
 # -----------------------------
-def load_file(path):
-    if os.path.exists(path):
-        with open(path, "r") as f:
+def load_users():
+    if os.path.exists(USERS_FILE):
+        with open(USERS_FILE) as f:
             return json.load(f)
     return {}
 
 
-def save_file(path, data):
-    with open(path, "w") as f:
-        json.dump(data, f, indent=2)
+def save_users(data):
+    with open(USERS_FILE, "w") as f:
+        json.dump(data, f)
 
-# -----------------------------
-# AUTH SYSTEM 🔐
-# -----------------------------
+
 def hash_pw(pw):
     return hashlib.sha256(pw.encode()).hexdigest()
 
 
 def register(username, password):
-    users = load_file(USERS_FILE)
+    users = load_users()
     if username in users:
         return False
     users[username] = hash_pw(password)
-    save_file(USERS_FILE, users)
+    save_users(users)
     return True
 
 
 def login(username, password):
-    users = load_file(USERS_FILE)
+    users = load_users()
     return username in users and users[username] == hash_pw(password)
 
 # -----------------------------
-# MEMORY 🧠
+# GEMINI AI
 # -----------------------------
-def load_memory(): return load_file(MEMORY_FILE)
+def call_gemini(messages, api_key):
+    if not api_key:
+        return "⚠️ Add Google API key in sidebar"
 
-def save_memory(mem): save_file(MEMORY_FILE, mem)
+    try:
+        genai.configure(api_key=api_key)
+        model = genai.GenerativeModel("gemini-1.5-flash")
 
+        prompt = "You are an expert ML assistant.\n\n"
 
-def update_memory(user, u, a):
-    mem = load_memory()
-    mem.setdefault(user, []).append({"u": u, "a": a})
-    mem[user] = mem[user][-20:]
-    save_memory(mem)
+        for m in messages:
+            role = "User" if m["role"] == "user" else "Assistant"
+            prompt += f"{role}: {m['content']}\n"
 
+        response = model.generate_content(prompt)
+        return response.text
 
-def get_memory(user):
-    mem = load_memory()
-    ctx = ""
-    for m in mem.get(user, [])[-10:]:
-        ctx += f"User:{m['u']}\nAI:{m['a']}\n"
-    return ctx
-
-# -----------------------------
-# GEMINI 🤖
-# -----------------------------
-def init_gemini(key):
-    genai.configure(api_key=key)
-    return genai.GenerativeModel("gemini-1.5-flash")
-
-
-def ask_ai(user, history, key):
-    if not key: return "Add API key"
-    model = init_gemini(key)
-
-    prompt = "You are ML expert AI.\n" + get_memory(user)
-
-    for m in history:
-        role = "User" if m["role"] == "user" else "AI"
-        prompt += f"{role}:{m['content']}\n"
-
-    return model.generate_content(prompt).text
+    except Exception as e:
+        return f"Error: {str(e)}"
 
 # -----------------------------
 # SESSION STATE
 # -----------------------------
-if "login" not in st.session_state:
-    st.session_state.login = False
+if "logged_in" not in st.session_state:
+    st.session_state.logged_in = False
+
 if "user" not in st.session_state:
     st.session_state.user = ""
+
 if "chat" not in st.session_state:
     st.session_state.chat = []
-if "key" not in st.session_state:
-    st.session_state.key = ""
+
+if "api_key" not in st.session_state:
+    st.session_state.api_key = ""
+
+if "mode" not in st.session_state:
+    st.session_state.mode = "login"
 
 # -----------------------------
-# LOGIN UI
+# LOGIN / SIGNUP
 # -----------------------------
-if not st.session_state.login:
-    st.title("🔐 Login / Signup")
+if not st.session_state.logged_in:
 
-    u = st.text_input("Username")
-    p = st.text_input("Password", type="password")
+    st.title("🔐 Authentication")
 
     col1, col2 = st.columns(2)
 
-    if col1.button("Login"):
-        if login(u, p):
-            st.session_state.login = True
-            st.session_state.user = u
-            st.rerun()
-        else:
-            st.error("Invalid")
+    if col1.button("Login Mode"):
+        st.session_state.mode = "login"
 
-    if col2.button("Signup"):
-        if register(u, p):
-            st.success("Created")
-        else:
-            st.error("User exists")
+    if col2.button("Signup Mode"):
+        st.session_state.mode = "signup"
+
+    username = st.text_input("Username")
+    password = st.text_input("Password", type="password")
+
+    if st.session_state.mode == "login":
+        if st.button("Login"):
+            if login(username, password):
+                st.session_state.logged_in = True
+                st.session_state.user = username
+                st.success("Logged in 🚀")
+                st.rerun()
+            else:
+                st.error("Invalid credentials")
+
+    else:
+        if st.button("Signup"):
+            if register(username, password):
+                st.success("Account created! Switch to login")
+                st.session_state.mode = "login"
+            else:
+                st.error("User already exists")
 
     st.stop()
 
@@ -151,108 +140,95 @@ if not st.session_state.login:
 # -----------------------------
 st.sidebar.title(f"👤 {st.session_state.user}")
 
-key = st.sidebar.text_input("Gemini Key", type="password")
+api_input = st.sidebar.text_input("Google Gemini API Key", type="password")
+
 if st.sidebar.button("Save Key"):
-    st.session_state.key = key
+    st.session_state.api_key = api_input
+    st.sidebar.success("Saved")
 
 if st.sidebar.button("Logout"):
-    st.session_state.login = False
+    st.session_state.logged_in = False
     st.rerun()
 
 # -----------------------------
 # MAIN APP
 # -----------------------------
-st.title("🚀 ML AI Advisor Enterprise")
+st.title("🚀 ML AI Advisor (Gemini)")
 
 # -----------------------------
-# DATA + ML
+# DATA ANALYSIS
 # -----------------------------
-file = st.file_uploader("Upload CSV")
+file = st.file_uploader("Upload CSV", type=["csv"])
 
 if file:
     df = pd.read_csv(file)
     st.dataframe(df.head())
 
-    target = st.selectbox("Target", df.columns)
+    target = st.selectbox("Select Target", df.columns)
 
     if st.button("Run ML"):
         X = pd.get_dummies(df.drop(columns=[target]))
         y = df[target]
 
-        X_train, X_test, y_train, y_test = train_test_split(X, y)
+        try:
+            y = pd.to_numeric(y)
+        except:
+            pass
 
-        models = {
-            "RF": RandomForestRegressor() if y.nunique()>10 else RandomForestClassifier(),
-            "DT": DecisionTreeRegressor() if y.nunique()>10 else DecisionTreeClassifier()
-        }
+        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2)
 
-        scores = {}
-        for n,m in models.items():
-            m.fit(X_train,y_train)
-            pred = m.predict(X_test)
-            scores[n] = r2_score(y_test,pred) if y.nunique()>10 else accuracy_score(y_test,pred)
+        problem = "classification" if y.nunique() < 10 else "regression"
 
-        best = max(scores,key=scores.get)
-        st.success(f"Best: {best} {scores[best]*100:.2f}%")
+        results = {}
 
-        # PDF
-        pdf = "report.pdf"
-        doc = SimpleDocTemplate(pdf)
-        styles = getSampleStyleSheet()
-        doc.build([Paragraph(f"Best Model: {best}", styles['Normal'])])
+        if problem == "regression":
+            models = {
+                "Linear": LinearRegression(),
+                "Random Forest": RandomForestRegressor(),
+                "Decision Tree": DecisionTreeRegressor()
+            }
 
-        with open(pdf,"rb") as f:
-            st.download_button("Download Report",f,"report.pdf")
+            for name, model in models.items():
+                model.fit(X_train, y_train)
+                score = r2_score(y_test, model.predict(X_test))
+                results[name] = score
 
-        # Voice
-        tts = gTTS(f"Best model is {best}")
-        tts.save("voice.mp3")
-        st.audio("voice.mp3")
+        else:
+            models = {
+                "Logistic": LogisticRegression(max_iter=1000),
+                "Random Forest": RandomForestClassifier(),
+                "Decision Tree": DecisionTreeClassifier()
+            }
+
+            for name, model in models.items():
+                model.fit(X_train, y_train)
+                score = accuracy_score(y_test, model.predict(X_test))
+                results[name] = score
+
+        best_model = max(results, key=results.get)
+        best_score = results[best_model]
+
+        st.success(f"🏆 Best Model: {best_model} ({best_score*100:.2f}%)")
+
+        fig, ax = plt.subplots()
+        sns.heatmap(df.corr(numeric_only=True), ax=ax)
+        st.pyplot(fig)
 
 # -----------------------------
 # CHATBOT
 # -----------------------------
-st.header("🤖 AI Chat")
+st.header("🤖 AI Chatbot")
 
 for m in st.session_state.chat:
     st.write(f"{m['role']}: {m['content']}")
 
-msg = st.text_input("Ask...")
+user_input = st.text_input("Ask anything...")
 
-if st.button("Send") and msg:
-    st.session_state.chat.append({"role":"user","content":msg})
+if st.button("Send") and user_input:
+    st.session_state.chat.append({"role": "user", "content": user_input})
 
-    reply = ask_ai(st.session_state.user, st.session_state.chat, st.session_state.key)
+    reply = call_gemini(st.session_state.chat, st.session_state.api_key)
 
-    st.session_state.chat.append({"role":"ai","content":reply})
-
-    update_memory(st.session_state.user, msg, reply)
+    st.session_state.chat.append({"role": "assistant", "content": reply})
 
     st.rerun()
-
-# -----------------------------
-# COLLAB (simple)
-# -----------------------------
-st.header("👥 Collaboration")
-
-sessions = load_file(SESSION_FILE)
-
-sid = st.text_input("Session ID")
-
-if st.button("Create Session"):
-    sid = str(uuid.uuid4())[:6]
-    sessions[sid] = []
-    save_file(SESSION_FILE, sessions)
-    st.success(f"Session: {sid}")
-
-if st.button("Join") and sid in sessions:
-    st.success("Joined")
-
-msg2 = st.text_input("Team message")
-if st.button("Send to team") and sid in sessions:
-    sessions[sid].append(f"{st.session_state.user}:{msg2}")
-    save_file(SESSION_FILE, sessions)
-
-if sid in sessions:
-    for m in sessions[sid]:
-        st.write(m)
