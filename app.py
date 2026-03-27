@@ -1,7 +1,7 @@
 """
 ╔══════════════════════════════════════════════════════════════════╗
 ║          ML AI ADVISOR  v3.0  —  by Nithin Mathew               ║
-║  • Generative AI Chatbot  (Claude claude-sonnet-4-20250514)           ║
+║ 
 ║  • Real-time Collaboration Workspace                             ║
 ║  • Multi-user Auth  •  Live Comments  •  Shared Sessions         ║
 ╚══════════════════════════════════════════════════════════════════╝
