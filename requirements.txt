@@ -1,8 +1,9 @@
 streamlit
 pandas
 numpy
+scikit-learn
+google-generativeai
 matplotlib
 seaborn
-scikit-learn
-gTTS
+gtts
 reportlab
